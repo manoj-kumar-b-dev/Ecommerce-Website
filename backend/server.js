@@ -32,7 +32,7 @@ const configuredAllowedOrigins = [
   ...(process.env.CLIENT_URLS ? process.env.CLIENT_URLS.split(',') : [])
 ]
   .filter(Boolean)
-  .map((origin) => origin.trim());
+  .map((origin) => origin.trim().replace(/\/+$/, '')); // strip trailing slashes
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredAllowedOrigins])];
 
 app.use(cors({
@@ -49,6 +49,11 @@ app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieParser());
 
+
+// Health check endpoint — ping this every 14 min to prevent Render cold starts
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);

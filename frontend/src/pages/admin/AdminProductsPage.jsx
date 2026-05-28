@@ -84,19 +84,19 @@ const AdminProductsPage = () => {
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  const triggerFileInput = (e) => {
-    e.preventDefault();
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+  // Note: triggerFileInput is no longer used — the label wrapping pattern
+  // handles the click natively and works correctly on Android.
+  // Keeping the ref in case it is needed for future reset logic.
+  const resetFileInput = () => {
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleImagesUpload = async (e) => {
-    const files = Array.from(e.target.files);
+    const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
     
-    // Clear input so same file can be selected again
-    e.target.value = '';
+    // Clear input so the same file can be re-selected later
+    resetFileInput();
 
     const newUploads = files.map(file => ({
       id: Math.random().toString(36).substring(7),
@@ -548,45 +548,52 @@ const AdminProductsPage = () => {
                     />
                   </div>
 
-                  {/* CRITICAL ANDROID IMAGE UPLOAD SECTION */}
+                  {/* IMAGE UPLOAD SECTION — label-wrap pattern works on Android & iOS */}
                   <div className="sm:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <div className="flex items-center justify-between mb-3">
-                      <label className="admin-label !mb-0 text-gray-900">Product Images</label>
+                      <span className="admin-label !mb-0 text-gray-900">Product Images</span>
                       <span className="text-xs text-gray-500 font-medium">{formData.images.length}/5 Images</span>
                     </div>
 
-                    {/* Hidden input strictly managed via absolute positioning & 0 opacity to avoid Android WebView blocking */}
-                    <div className="relative">
+                    {/*
+                      Android fix:
+                      - NO capture="environment" — that attribute forces camera-only on Android,
+                        blocking the gallery/file picker entirely.
+                      - The <input> is wrapped inside a <label> so a tap anywhere on the
+                        styled area natively opens the system file chooser without needing
+                        a programmatic .click() call (which Android WebView can block).
+                      - The input itself is visually hidden but NOT display:none or
+                        position:absolute with z-0-behind-button — both patterns
+                        can break on Android Chrome and Samsung Internet.
+                    */}
+                    <label
+                      htmlFor="productImageInput"
+                      className={`w-full flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed rounded-xl transition-all cursor-pointer select-none ${
+                        isMobile
+                          ? 'bg-white border-primary-300 active:border-primary-500 shadow-sm min-h-[140px]'
+                          : 'bg-white border-gray-300 hover:border-primary-400 hover:bg-primary-50/50'
+                      }`}
+                    >
+                      <div className="w-12 h-12 bg-primary-50 text-primary-600 rounded-full flex items-center justify-center mb-3 pointer-events-none">
+                        {isMobile ? <Camera className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
+                      </div>
+                      <p className="text-sm font-semibold text-gray-900 mb-1 pointer-events-none">
+                        {isMobile ? 'Tap to Choose Photo' : 'Click or Drag & Drop'}
+                      </p>
+                      <p className="text-xs text-gray-500 pointer-events-none">
+                        JPG, PNG up to 10MB
+                      </p>
+                      {/* Input is inside the label — native label-click association, no JS needed */}
                       <input
+                        id="productImageInput"
                         ref={fileInputRef}
                         type="file"
                         multiple
                         accept="image/*"
-                        capture="environment" /* Crucial for Android Camera/Gallery prompt */
                         onChange={handleImagesUpload}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-0"
-                        tabIndex="-1"
+                        className="sr-only"
                       />
-                      
-                      {/* Upload Trigger Button */}
-                      <button
-                        type="button"
-                        onClick={triggerFileInput}
-                        className={`w-full relative z-10 flex flex-col items-center justify-center p-6 sm:p-8 border-2 border-dashed rounded-xl transition-all ${
-                          isMobile ? 'bg-white border-primary-300 hover:border-primary-400 shadow-sm min-h-[140px]' : 'bg-white border-gray-300 hover:border-primary-400 hover:bg-primary-50/50'
-                        }`}
-                      >
-                        <div className="w-12 h-12 bg-primary-50 text-primary-600 rounded-full flex items-center justify-center mb-3">
-                          {isMobile ? <Camera className="h-6 w-6" /> : <Upload className="h-6 w-6" />}
-                        </div>
-                        <p className="text-sm font-semibold text-gray-900 mb-1">
-                          {isMobile ? 'Tap to Choose Photo' : 'Click or Drag & Drop'}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          JPG, PNG up to 10MB (Auto-compressed)
-                        </p>
-                      </button>
-                    </div>
+                    </label>
 
                     {/* Upload Previews */}
                     {(formData.images.length > 0 || pendingUploads.length > 0) && (

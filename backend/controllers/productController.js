@@ -1,5 +1,6 @@
 import Product from '../models/Product.js';
 import Category from '../models/Category.js';
+import Review from '../models/Review.js';
 
 const DEFAULT_CATEGORIES = [
   { name: 'Electronics', slug: 'electronics' },
@@ -96,12 +97,13 @@ export const getProducts = async (req, res, next) => {
 
 export const getProductBySlug = async (req, res, next) => {
   try {
-    const product = await Product.findOne({ slug: req.params.slug }).populate('category', 'name slug');
+    const product = await Product.findOne({ slug: req.params.slug }).populate('category', 'name slug').lean();
     if (!product) {
       res.status(404);
       return next(new Error('Product not found matching that slug identifier'));
     }
-    res.status(200).json({ success: true, product });
+    const reviews = await Review.find({ product: product._id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, product: { ...product, reviews } });
   } catch (error) {
     next(error);
   }

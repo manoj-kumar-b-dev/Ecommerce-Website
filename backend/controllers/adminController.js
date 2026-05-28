@@ -153,34 +153,33 @@ export const manageAdminUsers = async (req, res, next) => {
 export const uploadProductImage = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file provided' });
+      return res.status(400).json({ success: false, message: 'No file provided. Make sure field name is "file".' });
     }
 
-    const result = await cloudinary.uploader.upload_stream(
-      {
-        resource_type: 'auto',
-        folder: 'shopflow/products',
-        allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-        max_file_size: 10 * 1024 * 1024 // 10MB
-      },
-      (error, result) => {
-        if (error) {
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Upload failed',
-            error: error.message 
-          });
+    // Wrap upload_stream in a Promise so errors propagate correctly
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        {
+          resource_type: 'auto',
+          folder: 'shopflow/products',
+          allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+          max_file_size: 10 * 1024 * 1024 // 10MB
+        },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
         }
-        res.status(200).json({ 
-          success: true, 
-          image_url: result.secure_url,
-          public_id: result.public_id 
-        });
-      }
-    );
+      );
+      stream.end(req.file.buffer);
+    });
 
-    result.end(req.file.buffer);
+    res.status(200).json({
+      success: true,
+      image_url: uploadResult.secure_url,
+      public_id: uploadResult.public_id
+    });
   } catch (error) {
     next(error);
   }
 };
+

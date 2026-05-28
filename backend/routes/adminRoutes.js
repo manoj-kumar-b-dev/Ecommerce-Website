@@ -9,7 +9,15 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 
 router.use(protect, adminOnly);
 
-router.post('/upload', upload.single('file'), uploadProductImage);
+// Handle multer errors explicitly so they return 400 (not a silent req.file = undefined)
+router.post('/upload', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: `File error: ${err.message}` });
+    }
+    next();
+  });
+}, uploadProductImage);
 
 router.get('/stats', getAdminStats);
 

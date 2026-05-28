@@ -6,7 +6,33 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 30000,
+  timeout: 60000, // 60s to handle Render free-tier cold starts
+});
+
+// Retry logic for timeout/network errors (Render cold start resilience)
+axiosInstance.interceptors.response.use(null, async (error) => {
+  const config = error.config;
+  
+  // Only retry on timeout or network errors, not on HTTP errors
+  const isRetryable = error.code === 'ECONNABORTED' || error.message === 'Network Error';
+  
+  if (!isRetryable || !config) return Promise.reject(error);
+  
+  config.__retryCount = config.__retryCount || 0;
+  const MAX_RETRIES = 2;
+  
+  if (config.__retryCount >= MAX_RETRIES) {
+    return Promise.reject(error);
+  }
+  
+  config.__retryCount += 1;
+  console.log(`[API] Retrying request (${config.__retryCount}/${MAX_RETRIES}): ${config.url}`);
+  
+  // Exponential backoff: 2s, 4s
+  const delay = Math.pow(2, config.__retryCount) * 1000;
+  await new Promise(resolve => setTimeout(resolve, delay));
+  
+  return axiosInstance(config);
 });
 
 // Request interceptor — attach auth token from localStorage
@@ -72,7 +98,7 @@ axiosInstance.interceptors.response.use(
     }
 
     if (error.code === 'ECONNABORTED') {
-      console.error('[API] Request timed out after 30s');
+      console.error('[API] Request timed out after 60s');
     }
 
     return Promise.reject(error);

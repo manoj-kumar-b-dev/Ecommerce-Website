@@ -7,21 +7,57 @@ const INITIAL_FORM_STATE = {
   category: '', stock: '', images: [], isFeatured: false, tags: '', brand: ''
 };
 
-// Client-side image compression for Android
-const compressImage = (file, maxWidth = 1200, quality = 0.8) => {
+const MAX_PRODUCT_IMAGES = 5;
+const MAX_UPLOAD_SIZE_MB = 25;
+const MAX_UPLOAD_SIZE_BYTES = MAX_UPLOAD_SIZE_MB * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'image/heic',
+  'image/heif',
+]);
+const IMAGE_EXT_RE = /\.(jpe?g|png|webp|heic|heif)$/i;
+
+const getUploadFileName = (file, wasCompressed) => {
+  const fallbackName = `product-${Date.now()}`;
+  const originalName = file.name || fallbackName;
+  return wasCompressed
+    ? originalName.replace(/\.[^.]+$/, '') + '.jpg'
+    : originalName;
+};
+
+const getProgressPercent = (progressEvent) => {
+  if (!progressEvent.total) return 50;
+  return Math.min(99, Math.max(1, Math.round((progressEvent.loaded * 100) / progressEvent.total)));
+};
+
+// Client-side image compression for large mobile camera photos.
+const compressImage = (file, maxWidth = 1600, quality = 0.82) => {
   return new Promise((resolve) => {
+    if (!file.type || file.type === 'image/heic' || file.type === 'image/heif') {
+      resolve(file);
+      return;
+    }
+
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const scale = Math.min(1, maxWidth / img.width);
-      canvas.width = img.width * scale;
-      canvas.height = img.height * scale;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
+      }
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       canvas.toBlob((blob) => {
         // blob can be null on some browsers (memory pressure, canvas taint, etc.)
-        resolve(blob || file);
+        resolve(blob && blob.size < file.size ? blob : file);
         URL.revokeObjectURL(url);
       }, 'image/jpeg', quality);
     };
@@ -98,39 +134,49 @@ const AdminProductsPage = () => {
   // Catches wrong file types and oversized files immediately on Android
   // without a round-trip to the backend.
   const validateFile = useCallback((file) => {
-    const ALLOWED_TYPES = new Set([
-      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
-      'image/gif', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'
-    ]);
-    const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif|bmp|tiff?)$/i;
-    const MAX_SIZE_MB = 15;
-    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-
     // MIME type check (primary)
-    const isValidMime = ALLOWED_TYPES.has(file.type?.toLowerCase());
+    const isValidMime = ALLOWED_IMAGE_TYPES.has(file.type?.toLowerCase());
     // Extension fallback — Samsung Internet / Android WebView sometimes sends
     // 'application/octet-stream' for images, so check the filename extension too.
-    const isValidExt = IMAGE_EXT_RE.test(file.name);
+    const isValidExt = IMAGE_EXT_RE.test(file.name || '');
 
     if (!isValidMime && !isValidExt) {
       return `"${file.name}" is not a supported image format. Please use JPG, PNG, WebP, or HEIC.`;
     }
-    if (file.size > MAX_SIZE_BYTES) {
-      return `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_SIZE_MB} MB.`;
+    if (file.size > MAX_UPLOAD_SIZE_BYTES) {
+      return `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_UPLOAD_SIZE_MB} MB.`;
     }
     return null; // valid
   }, []);
 
   const handleImagesUpload = async (e) => {
-    const files = Array.from(e.target.files || []);
+    const selectedFile = e.target.files?.[0];
+    const files = selectedFile ? Array.from(e.target.files || []) : [];
     if (files.length === 0) return;
 
     // Clear input so the same file can be re-selected later
     resetFileInput();
     setUploadErrorMsg('');
 
+    const availableSlots = MAX_PRODUCT_IMAGES - formData.images.length - pendingUploads.length;
+    if (availableSlots <= 0) {
+      setUploadErrorMsg(`You can upload up to ${MAX_PRODUCT_IMAGES} product images.`);
+      return;
+    }
+
+    const filesToUpload = files.slice(0, availableSlots);
+    if (files.length > availableSlots) {
+      setUploadErrorMsg(`Only ${availableSlots} more image${availableSlots === 1 ? '' : 's'} can be added.`);
+    }
+
+    console.log('[UPLOAD] Selected files:', filesToUpload.map(file => ({
+      name: file.name,
+      type: file.type,
+      sizeMb: (file.size / 1024 / 1024).toFixed(2),
+    })));
+
     // Validate all files before starting any uploads
-    for (const file of files) {
+    for (const file of filesToUpload) {
       const validationError = validateFile(file);
       if (validationError) {
         setUploadErrorMsg(validationError);
@@ -138,7 +184,7 @@ const AdminProductsPage = () => {
       }
     }
 
-    const newUploads = files.map(file => ({
+    const newUploads = filesToUpload.map(file => ({
       id: Math.random().toString(36).substring(7),
       file,
       localUrl: URL.createObjectURL(file),
@@ -162,15 +208,20 @@ const AdminProductsPage = () => {
         // If blob was returned (compressed), rename to .jpg to match JPEG content.
         // If original File was returned as fallback, keep its original name/extension.
         const isCompressedBlob = compressedBlob !== uploadItem.file;
-        const safeFileName = isCompressedBlob
-          ? uploadItem.file.name.replace(/\.[^.]+$/, '.jpg')
-          : uploadItem.file.name;
+        const safeFileName = getUploadFileName(uploadItem.file, isCompressedBlob);
         fData.append('file', compressedBlob, safeFileName);
+        console.log('[UPLOAD] Sending file:', {
+          originalName: uploadItem.file.name,
+          uploadName: safeFileName,
+          originalSizeMb: (uploadItem.file.size / 1024 / 1024).toFixed(2),
+          uploadSizeMb: (compressedBlob.size / 1024 / 1024).toFixed(2),
+          type: compressedBlob.type || uploadItem.file.type || 'unknown',
+        });
 
         // DO NOT set Content-Type header manually! Let the browser set the boundary
         const res = await axiosInstance.post('/api/admin/upload', fData, {
           onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            const percentCompleted = getProgressPercent(progressEvent);
             setPendingUploads(prev => prev.map(p => 
               p.id === uploadItem.id ? { ...p, progress: percentCompleted } : p
             ));
@@ -179,6 +230,7 @@ const AdminProductsPage = () => {
 
         if (res.data.success && res.data.image_url) {
           setFormData(prev => ({ ...prev, images: [...prev.images, res.data.image_url] }));
+          URL.revokeObjectURL(uploadItem.localUrl);
           setPendingUploads(prev => prev.filter(p => p.id !== uploadItem.id));
         } else {
           throw new Error('Upload failed on server');
@@ -215,13 +267,11 @@ const AdminProductsPage = () => {
       ));
       const fData = new FormData();
       const isCompressedBlob = compressedBlob !== uploadItem.file;
-      const safeFileName = isCompressedBlob
-        ? uploadItem.file.name.replace(/\.[^.]+$/, '.jpg')
-        : uploadItem.file.name;
+      const safeFileName = getUploadFileName(uploadItem.file, isCompressedBlob);
       fData.append('file', compressedBlob, safeFileName);
       const res = await axiosInstance.post('/api/admin/upload', fData, {
         onUploadProgress: (progressEvent) => {
-          const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          const pct = getProgressPercent(progressEvent);
           setPendingUploads(prev => prev.map(p =>
             p.id === uploadItem.id ? { ...p, progress: pct } : p
           ));
@@ -229,6 +279,7 @@ const AdminProductsPage = () => {
       });
       if (res.data.success && res.data.image_url) {
         setFormData(prev => ({ ...prev, images: [...prev.images, res.data.image_url] }));
+        URL.revokeObjectURL(uploadItem.localUrl);
         setPendingUploads(prev => prev.filter(p => p.id !== uploadItem.id));
       } else {
         throw new Error('Upload failed on server');
@@ -635,7 +686,7 @@ const AdminProductsPage = () => {
                   <div className="sm:col-span-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
                     <div className="flex items-center justify-between mb-3">
                       <span className="admin-label !mb-0 text-gray-900">Product Images</span>
-                      <span className="text-xs text-gray-500 font-medium">{formData.images.length}/5 Images</span>
+                      <span className="text-xs text-gray-500 font-medium">{formData.images.length}/{MAX_PRODUCT_IMAGES} Images</span>
                     </div>
 
                     {/*
@@ -664,7 +715,7 @@ const AdminProductsPage = () => {
                         {isMobile ? 'Tap to Choose Photo' : 'Click or Drag & Drop'}
                       </p>
                       <p className="text-xs text-gray-500 pointer-events-none">
-                        JPG, PNG, WebP, HEIC · Up to 15 MB
+                        JPG, PNG, WebP, HEIC · Up to {MAX_UPLOAD_SIZE_MB} MB
                       </p>
                       {/* Input is inside the label — native label-click association, no JS needed */}
                       <input

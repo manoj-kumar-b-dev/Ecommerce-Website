@@ -152,6 +152,14 @@ export const manageAdminUsers = async (req, res, next) => {
 
 export const uploadProductImage = async (req, res, next) => {
   try {
+    if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+      console.error('[UPLOAD] Cloudinary credentials are not configured');
+      return res.status(500).json({
+        success: false,
+        message: 'Image upload service is not configured. Please check Cloudinary settings.'
+      });
+    }
+
     if (!req.file) {
       console.warn('[UPLOAD] Request reached controller with no file — check multer config');
       return res.status(400).json({
@@ -172,7 +180,10 @@ export const uploadProductImage = async (req, res, next) => {
           // Extended format list — covers Android HEIC/HEIF, WebP, and BMP fallbacks.
           // The frontend compresses to JPEG first, but if compression fails the original
           // format (including HEIC from iPhone/Android) is sent directly.
-          allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff'],
+          allowed_formats: ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'],
+          use_filename: true,
+          unique_filename: true,
+          overwrite: false,
           // Auto-quality and auto-format deliver the best file for each client device.
           // This significantly reduces image size for mobile page loads.
           transformation: [
@@ -181,7 +192,13 @@ export const uploadProductImage = async (req, res, next) => {
         },
         (error, result) => {
           if (error) {
-            console.error('[UPLOAD] Cloudinary error:', error.message, '| HTTP status:', error.http_code);
+            console.error('[UPLOAD] Cloudinary error:', {
+              message: error.message,
+              httpCode: error.http_code,
+              name: req.file.originalname,
+              mimeType: req.file.mimetype,
+              sizeKb: Math.round(req.file.size / 1024),
+            });
             return reject(error);
           }
           console.log(`[UPLOAD] Cloudinary success: ${result.public_id} | ${result.format} | ${(result.bytes / 1024).toFixed(1)} KB`);
@@ -200,7 +217,10 @@ export const uploadProductImage = async (req, res, next) => {
     });
   } catch (error) {
     // Return a structured error so the frontend can display a meaningful message
-    const cloudinaryMessage = error.message || 'Cloudinary upload failed';
+    const rawCloudinaryMessage = error.message || 'Cloudinary upload failed';
+    const cloudinaryMessage = /Invalid image file|Unsupported image type|not allowed/i.test(rawCloudinaryMessage)
+      ? 'This image format could not be processed. Please try a JPG, PNG, WebP, or a different HEIC photo.'
+      : rawCloudinaryMessage;
     const statusCode = error.http_code || 500;
     console.error('[UPLOAD] Upload pipeline failed:', cloudinaryMessage);
     return res.status(statusCode).json({

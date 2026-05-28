@@ -3,9 +3,6 @@ import axios from 'axios';
 const axiosInstance = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000',
   withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: 60000, // 60s to handle Render free-tier cold starts
 });
 
@@ -43,21 +40,21 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // CRITICAL: For FormData (file uploads), the Content-Type must NOT be set manually.
-    // The browser needs to set it automatically as 'multipart/form-data; boundary=...' with
-    // the correct boundary string — multer parses this boundary to split the fields.
-    //
-    // WHY `= undefined` instead of `delete`:
-    // Axios merges headers in layers: instance defaults → request config.
-    // On Android Chrome, `delete config.headers['Content-Type']` removes the key from
-    // the request-level object but Axios's internal merge can still inject the instance-level
-    // 'application/json' back in. Setting the value to `undefined` forces Axios to treat
-    // it as "not set" at every merge level, letting the browser set the boundary correctly.
+    // For FormData uploads, Content-Type must be absent so the browser can add
+    // multipart/form-data with the boundary that multer needs to parse the file.
     if (config.data instanceof FormData) {
-      config.headers['Content-Type'] = undefined;
-      // Also clear from the common/post headers in case they exist on this config
-      if (config.headers.common) config.headers.common['Content-Type'] = undefined;
-      if (config.headers.post) config.headers.post['Content-Type'] = undefined;
+      if (typeof config.headers?.delete === 'function') {
+        config.headers.delete('Content-Type');
+      } else if (config.headers) {
+        delete config.headers['Content-Type'];
+        delete config.headers['content-type'];
+      }
+    } else if (config.data && typeof config.data === 'object' && !(config.data instanceof URLSearchParams)) {
+      if (typeof config.headers?.set === 'function') {
+        config.headers.set('Content-Type', 'application/json');
+      } else {
+        config.headers = { ...config.headers, 'Content-Type': 'application/json' };
+      }
     }
 
     // Extend timeout for file upload requests — large mobile camera photos on slow
@@ -121,7 +118,7 @@ axiosInstance.interceptors.response.use(
     }
 
     if (error.code === 'ECONNABORTED') {
-      console.error('[API] Request timed out after 60s');
+      console.error(`[API] Request timed out after ${error.config?.timeout || 60000}ms`);
     }
 
     return Promise.reject(error);

@@ -43,6 +43,13 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    // CRITICAL: If sending FormData (file upload), remove the default
+    // Content-Type: application/json header so the browser can automatically
+    // set the correct multipart/form-data boundary — multer requires this.
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+
     if (import.meta.env.DEV) {
       console.debug(`[API] ${config.method.toUpperCase()} ${config.url}`);
     }

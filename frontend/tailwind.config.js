@@ -10,6 +10,25 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        heading: ['Poppins', 'system-ui', 'sans-serif'],
+        display: ['Poppins', 'system-ui', 'sans-serif'],
+        body: ['Inter', 'system-ui', 'sans-serif'],
+      },
+      fontSize: {
+        xs:   ['11.5px', { lineHeight: '1.45', letterSpacing: '0.01em' }],
+        sm:   ['13.5px', { lineHeight: '1.5',  letterSpacing: '0.01em' }],
+        base: ['15.5px', { lineHeight: '1.65', letterSpacing: '0em' }],
+        lg:   ['17.5px', { lineHeight: '1.6',  letterSpacing: '-0.01em' }],
+        xl:   ['20px',   { lineHeight: '1.45', letterSpacing: '-0.015em' }],
+        '2xl':['23px',   { lineHeight: '1.35', letterSpacing: '-0.02em' }],
+        '3xl':['30px',   { lineHeight: '1.25', letterSpacing: '-0.025em' }],
+        '4xl':['38px',   { lineHeight: '1.15', letterSpacing: '-0.03em' }],
+        '5xl':['48px',   { lineHeight: '1.08', letterSpacing: '-0.035em' }],
+        '6xl':['58px',   { lineHeight: '1.0',  letterSpacing: '-0.04em' }],
+        '7xl':['72px',   { lineHeight: '0.95', letterSpacing: '-0.045em' }],
+      },
       colors: {
         primary: {
           50: '#eef2ff',
@@ -38,6 +57,21 @@ export default {
           800: '#92400e',
           900: '#78350f',
         },
+        accent: {
+          50: '#fff7ed',
+          100: '#ffedd5',
+          200: '#fed7aa',
+          300: '#fdba74',
+          400: '#fb923c',
+          500: '#f97316',
+          600: '#ea580c',
+          700: '#c2410c',
+          800: '#9a3412',
+          900: '#7c2d12',
+          light: '#f97316',
+          DEFAULT: '#ea580c',
+          dark: '#c2410c',
+        },
         success: {
           50: '#f0fdf4',
           100: '#dcfce7',
@@ -62,14 +96,57 @@ export default {
           800: '#991b1b',
           900: '#7f1d1d',
         },
+        warning: {
+          50: '#fffaeb',
+          100: '#fef08a',
+          200: '#fde047',
+          300: '#facc15',
+          400: '#eab308',
+          500: '#ca8a04',
+          600: '#a16207',
+          700: '#854d0e',
+          800: '#713f12',
+          900: '#633412',
+        },
       },
-      fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+      screens: {
+        'xs': '320px',
+      },
+      spacing: {
+        13: '3.25rem',
+        15: '3.75rem',
+        17: '4.25rem',
+        18: '4.5rem',
+      },
+      borderRadius: {
+        xs: '4px',
+        sm: '6px',
+        md: '8px',
+        lg: '12px',
+        xl: '16px',
+        '2xl': '20px',
+        '3xl': '24px',
+      },
+      boxShadow: {
+        xs: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+        sm: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
+        md: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        lg: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+        xl: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.15)',
+        'inner': 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.05)',
+        'product': '0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04)',
+        'card-hover': '0 16px 40px rgba(0, 0, 0, 0.1), 0 4px 12px rgba(0, 0, 0, 0.05)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
         'slide-up': 'slideUp 0.3s ease-out',
+        'slide-in-right': 'slideInRight 0.3s ease-out',
+        'slide-in-left': 'slideInLeft 0.3s ease-out',
         'scale-up': 'scaleUp 0.2s ease-out',
+        'pulse-soft': 'pulseSoft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+        'bounce-subtle': 'bounceSubtle 1s ease-in-out infinite',
+        'shimmer': 'shimmer 1.5s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -80,9 +157,29 @@ export default {
           '0%': { transform: 'translateY(10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
+        slideInRight: {
+          '0%': { transform: 'translateX(20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
+        slideInLeft: {
+          '0%': { transform: 'translateX(-20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' },
+        },
         scaleUp: {
           '0%': { transform: 'scale(0.95)', opacity: '0' },
           '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        pulseSoft: {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '.8' },
+        },
+        bounceSubtle: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-2px)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
         },
       },
     },

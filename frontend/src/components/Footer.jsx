@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin, Send } from 'lucide-react';
+import { Mail, Phone, MapPin, Send, Heart } from 'lucide-react';
 
 // Brand icons removed from lucide-react — using inline SVGs instead
 const Facebook = ({ className }) => (
@@ -60,47 +60,54 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-gray-900 text-white">
-      {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+    <footer className="bg-gradient-to-b from-gray-900 to-gray-950 text-white border-t border-gray-800 pb-[72px] md:pb-0 relative z-10">
+      {/* Main Footer Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 md:gap-12 text-center sm:text-left">
           {/* Brand Column */}
-          <div>
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-10 h-10 bg-primary-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-xl">S</span>
+          <div className="lg:col-span-1 flex flex-col items-center sm:items-start">
+            <Link to="/" className="flex items-center gap-2 mb-6 group inline-flex">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg flex items-center justify-center group-hover:shadow-lg group-hover:shadow-primary-600/50 transition-all">
+                <span className="text-white font-heading font-bold text-lg">S</span>
               </div>
-              <span className="font-bold text-xl">ShopFlow</span>
+              <span className="font-heading font-bold text-xl group-hover:text-primary-400 transition-colors">ShopFlow</span>
             </Link>
-            <p className="text-gray-400 text-sm mb-4">
-              Your premium destination for quality products at unbeatable prices.
+            <p className="text-gray-400 text-sm mb-6 leading-relaxed max-w-xs mx-auto sm:mx-0">
+              Your premium destination for quality products at unbeatable prices. Shop with confidence.
             </p>
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Mail className="h-4 w-4" />
-                <span>support@shopflow.com</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Phone className="h-4 w-4" />
-                <span>919344758870</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <MapPin className="h-4 w-4" />
-                <span>Bengaluru, Karnataka</span>
+            <div className="space-y-4 w-full flex flex-col items-center sm:items-start">
+              <a href="mailto:support@shopflow.com" className="flex items-center justify-center sm:justify-start gap-3 text-gray-400 hover:text-primary-400 transition-colors group">
+                <div className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center group-hover:bg-primary-600 transition-all flex-shrink-0">
+                  <Mail className="h-4 w-4" />
+                </div>
+                <span className="text-sm">support@shopflow.com</span>
+              </a>
+              <a href="tel:+919344758870" className="flex items-center justify-center sm:justify-start gap-3 text-gray-400 hover:text-primary-400 transition-colors group">
+                <div className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center group-hover:bg-primary-600 transition-all flex-shrink-0">
+                  <Phone className="h-4 w-4" />
+                </div>
+                <span className="text-sm">+91 9344758870</span>
+              </a>
+              <div className="flex items-center justify-center sm:justify-start gap-3 text-gray-400">
+                <div className="w-9 h-9 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MapPin className="h-4 w-4" />
+                </div>
+                <span className="text-sm">Bengaluru, Karnataka</span>
               </div>
             </div>
           </div>
 
           {/* Shop Links */}
-          <div>
-            <h4 className="font-semibold text-white mb-4">Shop</h4>
-            <ul className="space-y-2">
+          <div className="flex flex-col items-center sm:items-start">
+            <h4 className="font-heading font-bold text-lg text-white mb-6">Shop</h4>
+            <ul className="space-y-4 w-full text-center sm:text-left">
               {footerLinks.shop.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    className="text-sm font-medium text-gray-400 hover:text-primary-400 transition-colors duration-200 inline-flex items-center justify-center sm:justify-start gap-2 group w-full"
                   >
+                    <span className="hidden sm:inline-block w-1.5 h-1.5 bg-gray-600 rounded-full group-hover:bg-primary-400 transition-colors opacity-0 group-hover:opacity-100" />
                     {link.label}
                   </Link>
                 </li>
@@ -109,15 +116,16 @@ const Footer = () => {
           </div>
 
           {/* Support Links */}
-          <div>
-            <h4 className="font-semibold text-white mb-4">Support</h4>
-            <ul className="space-y-2">
+          <div className="flex flex-col items-center sm:items-start">
+            <h4 className="font-heading font-bold text-lg text-white mb-6">Support</h4>
+            <ul className="space-y-4 w-full text-center sm:text-left">
               {footerLinks.support.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    className="text-sm font-medium text-gray-400 hover:text-primary-400 transition-colors duration-200 inline-flex items-center justify-center sm:justify-start gap-2 group w-full"
                   >
+                    <span className="hidden sm:inline-block w-1.5 h-1.5 bg-gray-600 rounded-full group-hover:bg-primary-400 transition-colors opacity-0 group-hover:opacity-100" />
                     {link.label}
                   </Link>
                 </li>
@@ -126,15 +134,16 @@ const Footer = () => {
           </div>
 
           {/* Company Links */}
-          <div>
-            <h4 className="font-semibold text-white mb-4">Company</h4>
-            <ul className="space-y-2">
+          <div className="flex flex-col items-center sm:items-start">
+            <h4 className="font-heading font-bold text-lg text-white mb-6">Company</h4>
+            <ul className="space-y-4 w-full text-center sm:text-left">
               {footerLinks.company.map((link) => (
                 <li key={link.to}>
                   <Link
                     to={link.to}
-                    className="text-sm text-gray-400 hover:text-white transition-colors"
+                    className="text-sm font-medium text-gray-400 hover:text-primary-400 transition-colors duration-200 inline-flex items-center justify-center sm:justify-start gap-2 group w-full"
                   >
+                    <span className="hidden sm:inline-block w-1.5 h-1.5 bg-gray-600 rounded-full group-hover:bg-primary-400 transition-colors opacity-0 group-hover:opacity-100" />
                     {link.label}
                   </Link>
                 </li>
@@ -143,32 +152,56 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Social Links */}
-        <div className="flex items-center justify-center md:justify-start gap-4 mt-8 pt-8 border-t border-gray-800">
-          {socialLinks.map((social) => (
-            <a
-              key={social.label}
-              href={social.href}
-              target='_blank'
-              className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary-600 transition-all"
-              aria-label={social.label}
-            >
-              <social.icon className="h-5 w-5" />
-            </a>
-          ))}
+        {/* Divider */}
+        <div className="h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent my-10" />
+
+        {/* Social Links & Bottom Info */}
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          {/* Social Links */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+            <span className="text-sm font-bold text-gray-400 uppercase tracking-wider">Follow us:</span>
+            <div className="flex items-center gap-3">
+              {socialLinks.map((social) => (
+                <a
+                  key={social.label}
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-gray-800 rounded-xl flex items-center justify-center text-gray-400 hover:text-white hover:bg-primary-600 transition-all duration-300 transform hover:-translate-y-1"
+                  aria-label={`Visit us on ${social.label}`}
+                  title={social.label}
+                >
+                  <social.icon className="h-4 w-4" />
+                </a>
+              ))}
+            </div>
+          </div>
+
+          {/* Trust Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-6 text-sm">
+            <span className="flex items-center gap-2 font-bold text-gray-400">
+              <span className="w-2.5 h-2.5 bg-success-500 rounded-full animate-pulse-soft shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              Secure Payments
+            </span>
+            <span className="hidden sm:flex items-center gap-2 font-bold text-gray-400">
+              <span className="w-2.5 h-2.5 bg-primary-500 rounded-full animate-pulse-soft shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+              Trusted Seller
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Bottom Bar */}
-      <div className="border-t border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between text-sm text-gray-400">
-            <p>&copy; {new Date().getFullYear()} ShopFlow. All rights reserved.</p>
-            <div className="flex items-center gap-4 mt-4 md:mt-0">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 bg-success-500 rounded-full" />
-                All payments secure
-              </span>
+      <div className="border-t border-gray-800 bg-black/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs sm:text-sm font-medium text-gray-500">
+            <p className="text-center sm:text-left">
+              &copy; {new Date().getFullYear()} ShopFlow. All rights reserved.
+            </p>
+            <div className="flex items-center gap-1.5 flex-wrap justify-center">
+              <span>Made with</span>
+              <Heart className="h-4 w-4 text-danger-500 fill-current animate-pulse-soft" />
+              <span>by the ShopFlow team</span>
             </div>
           </div>
         </div>

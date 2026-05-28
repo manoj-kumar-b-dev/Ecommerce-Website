@@ -66,16 +66,16 @@ const SearchBar = () => {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full max-w-lg">
+    <div ref={containerRef} className="relative w-full max-w-md">
       <form onSubmit={handleSearchSubmit} className="relative">
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search products, brands, categories..."
-          className="md:w-[500px] h-14 pl-10 pr-10 py-2.5 text-md border border-gray-200 rounded-full bg-gray-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-gray-400"
+          placeholder="Search products, brands..."
+          className="w-full h-11 md:h-12 pl-11 pr-10 text-sm md:text-base border border-gray-200 rounded-xl bg-gray-50/80 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all placeholder:text-gray-400"
         />
-        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
           {loading ? (
             <Loader2 className="h-4 w-4 text-primary-500 animate-spin" />
           ) : (
@@ -86,7 +86,8 @@ const SearchBar = () => {
           <button
             type="button"
             onClick={clearSearch}
-            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Clear search"
           >
             <X className="h-4 w-4" />
           </button>
@@ -94,17 +95,18 @@ const SearchBar = () => {
       </form>
 
       {showDropdown && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden max-h-96 overflow-y-auto">
+        <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden max-h-96 overflow-y-auto">
           {suggestions.map((product) => (
             <div
               key={product._id}
               onClick={() => handleSuggestionClick(product.slug)}
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 last:border-0"
+              style={{ minHeight: '52px' }}
             >
               <img
                 src={product.images?.[0] || 'https://placehold.co/40x40?text=Product'}
                 alt={product.name}
-                className="h-10 w-10 object-cover rounded-lg border border-gray-100"
+                className="h-11 w-11 object-cover rounded-lg border border-gray-100 flex-shrink-0"
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = 'https://placehold.co/40x40?text=Product';
@@ -114,10 +116,10 @@ const SearchBar = () => {
                 <p className="text-sm font-medium text-gray-900 truncate">{product.name}</p>
                 <p className="text-xs text-gray-500">{product.brand}</p>
               </div>
-              <div className="text-right">
+              <div className="text-right flex-shrink-0">
                 <p className="text-sm font-bold text-gray-900">₹{product.price}</p>
                 {product.discountPercent > 0 && (
-                  <p className="text-xs text-danger-500">-{product.discountPercent}%</p>
+                  <p className="text-xs text-danger-500 font-medium">-{product.discountPercent}%</p>
                 )}
               </div>
             </div>

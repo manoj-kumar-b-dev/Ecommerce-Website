@@ -42,17 +42,29 @@ function App() {
           <CartProvider>
             <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
               <Toaster
-                position="top-right"
+                position="bottom-center"
                 toastOptions={{
-                  className: 'text-sm font-medium bg-white text-gray-900 rounded-lg shadow-lg border border-gray-200',
-                  duration: 4000
+                  className: 'text-sm font-bold bg-gray-900 text-white rounded-xl shadow-2xl border border-gray-800 px-6 py-4 mb-16 md:mb-4',
+                  duration: 4000,
+                  success: {
+                    iconTheme: {
+                      primary: '#10b981',
+                      secondary: '#fff',
+                    },
+                  },
+                  error: {
+                    iconTheme: {
+                      primary: '#ef4444',
+                      secondary: '#fff',
+                    },
+                  },
                 }}
               />
               <AddToCartModal />
               <Navbar />
               <CartDrawer />
-              <main className="min-h-screen bg-gray-50">
-                <Suspense fallback={<div className="py-20 flex justify-center"><LoadingSpinner size="large" /></div>}>
+              <main className="min-h-screen bg-gray-50 flex flex-col">
+                <Suspense fallback={<div className="flex-1 flex items-center justify-center py-20"><LoadingSpinner size="large" /></div>}>
                   <Routes>
                     {/* Public Engine Channels */}
                     <Route path="/" element={<Home />} />

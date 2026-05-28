@@ -153,20 +153,38 @@ export const manageAdminUsers = async (req, res, next) => {
 export const uploadProductImage = async (req, res, next) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: 'No file provided. Make sure field name is "file".' });
+      console.warn('[UPLOAD] Request reached controller with no file — check multer config');
+      return res.status(400).json({
+        success: false,
+        message: 'No image file received. Make sure the field name is "file" and the content type is multipart/form-data.'
+      });
     }
 
-    // Wrap upload_stream in a Promise so errors propagate correctly
+    console.log(`[UPLOAD] Processing: ${req.file.originalname} | ${req.file.mimetype} | ${(req.file.size / 1024).toFixed(1)} KB`);
+
+    // Wrap upload_stream in a Promise so async/await error handling works correctly.
+    // Do NOT use max_file_size here — it is not a valid Cloudinary upload_stream option.
     const uploadResult = await new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
         {
           resource_type: 'auto',
           folder: 'shopflow/products',
-          allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-          max_file_size: 10 * 1024 * 1024 // 10MB
+          // Extended format list — covers Android HEIC/HEIF, WebP, and BMP fallbacks.
+          // The frontend compresses to JPEG first, but if compression fails the original
+          // format (including HEIC from iPhone/Android) is sent directly.
+          allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'bmp', 'tiff'],
+          // Auto-quality and auto-format deliver the best file for each client device.
+          // This significantly reduces image size for mobile page loads.
+          transformation: [
+            { quality: 'auto:good', fetch_format: 'auto' }
+          ],
         },
         (error, result) => {
-          if (error) return reject(error);
+          if (error) {
+            console.error('[UPLOAD] Cloudinary error:', error.message, '| HTTP status:', error.http_code);
+            return reject(error);
+          }
+          console.log(`[UPLOAD] Cloudinary success: ${result.public_id} | ${result.format} | ${(result.bytes / 1024).toFixed(1)} KB`);
           resolve(result);
         }
       );
@@ -176,10 +194,20 @@ export const uploadProductImage = async (req, res, next) => {
     res.status(200).json({
       success: true,
       image_url: uploadResult.secure_url,
-      public_id: uploadResult.public_id
+      public_id: uploadResult.public_id,
+      format: uploadResult.format,
+      size_kb: Math.round(uploadResult.bytes / 1024),
     });
   } catch (error) {
-    next(error);
+    // Return a structured error so the frontend can display a meaningful message
+    const cloudinaryMessage = error.message || 'Cloudinary upload failed';
+    const statusCode = error.http_code || 500;
+    console.error('[UPLOAD] Upload pipeline failed:', cloudinaryMessage);
+    return res.status(statusCode).json({
+      success: false,
+      message: `Image upload failed: ${cloudinaryMessage}`,
+    });
   }
 };
+
 

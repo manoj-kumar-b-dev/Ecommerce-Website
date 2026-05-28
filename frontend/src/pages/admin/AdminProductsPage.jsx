@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit2, Trash2, X, Upload, Package, Search, Filter, Camera, AlertCircle, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Plus, Edit2, Trash2, X, Upload, Package, Search, Filter, Camera, AlertCircle, RefreshCw, CheckCircle2, RotateCcw } from 'lucide-react';
 import axiosInstance from '../../utils/axiosInstance';
 
 const INITIAL_FORM_STATE = {
@@ -91,12 +91,52 @@ const AdminProductsPage = () => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
+  // ── Upload error toast state ──────────────────────────────────────────────
+  const [uploadErrorMsg, setUploadErrorMsg] = useState('');
+
+  // Client-side validation before sending to the server.
+  // Catches wrong file types and oversized files immediately on Android
+  // without a round-trip to the backend.
+  const validateFile = useCallback((file) => {
+    const ALLOWED_TYPES = new Set([
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+      'image/gif', 'image/heic', 'image/heif', 'image/bmp', 'image/tiff'
+    ]);
+    const IMAGE_EXT_RE = /\.(jpe?g|png|webp|gif|heic|heif|bmp|tiff?)$/i;
+    const MAX_SIZE_MB = 15;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+    // MIME type check (primary)
+    const isValidMime = ALLOWED_TYPES.has(file.type?.toLowerCase());
+    // Extension fallback — Samsung Internet / Android WebView sometimes sends
+    // 'application/octet-stream' for images, so check the filename extension too.
+    const isValidExt = IMAGE_EXT_RE.test(file.name);
+
+    if (!isValidMime && !isValidExt) {
+      return `"${file.name}" is not a supported image format. Please use JPG, PNG, WebP, or HEIC.`;
+    }
+    if (file.size > MAX_SIZE_BYTES) {
+      return `"${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed size is ${MAX_SIZE_MB} MB.`;
+    }
+    return null; // valid
+  }, []);
+
   const handleImagesUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
-    
+
     // Clear input so the same file can be re-selected later
     resetFileInput();
+    setUploadErrorMsg('');
+
+    // Validate all files before starting any uploads
+    for (const file of files) {
+      const validationError = validateFile(file);
+      if (validationError) {
+        setUploadErrorMsg(validationError);
+        return; // Stop — don't process any file if one is invalid
+      }
+    }
 
     const newUploads = files.map(file => ({
       id: Math.random().toString(36).substring(7),
@@ -144,9 +184,11 @@ const AdminProductsPage = () => {
           throw new Error('Upload failed on server');
         }
       } catch (err) {
-        console.error(`Error uploading ${uploadItem.file.name}:`, err);
-        setPendingUploads(prev => prev.map(p => 
-          p.id === uploadItem.id ? { ...p, status: 'error' } : p
+        console.error(`[UPLOAD] Error uploading ${uploadItem.file.name}:`, err);
+        // Extract a meaningful message from the Axios error response
+        const serverMessage = err.response?.data?.message || err.message || 'Upload failed. Please try again.';
+        setPendingUploads(prev => prev.map(p =>
+          p.id === uploadItem.id ? { ...p, status: 'error', errorMsg: serverMessage } : p
         ));
       }
     }
@@ -160,10 +202,50 @@ const AdminProductsPage = () => {
     });
   };
 
+  // Retry a single failed upload by re-triggering the upload pipeline for that item
+  const retryFailedUpload = async (uploadItem) => {
+    setPendingUploads(prev => prev.map(p =>
+      p.id === uploadItem.id ? { ...p, status: 'compressing', progress: 0, errorMsg: undefined } : p
+    ));
+    setUploadErrorMsg('');
+    try {
+      const compressedBlob = await compressImage(uploadItem.file);
+      setPendingUploads(prev => prev.map(p =>
+        p.id === uploadItem.id ? { ...p, status: 'uploading', progress: 10 } : p
+      ));
+      const fData = new FormData();
+      const isCompressedBlob = compressedBlob !== uploadItem.file;
+      const safeFileName = isCompressedBlob
+        ? uploadItem.file.name.replace(/\.[^.]+$/, '.jpg')
+        : uploadItem.file.name;
+      fData.append('file', compressedBlob, safeFileName);
+      const res = await axiosInstance.post('/api/admin/upload', fData, {
+        onUploadProgress: (progressEvent) => {
+          const pct = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setPendingUploads(prev => prev.map(p =>
+            p.id === uploadItem.id ? { ...p, progress: pct } : p
+          ));
+        }
+      });
+      if (res.data.success && res.data.image_url) {
+        setFormData(prev => ({ ...prev, images: [...prev.images, res.data.image_url] }));
+        setPendingUploads(prev => prev.filter(p => p.id !== uploadItem.id));
+      } else {
+        throw new Error('Upload failed on server');
+      }
+    } catch (err) {
+      const serverMessage = err.response?.data?.message || err.message || 'Upload failed. Please try again.';
+      setPendingUploads(prev => prev.map(p =>
+        p.id === uploadItem.id ? { ...p, status: 'error', errorMsg: serverMessage } : p
+      ));
+    }
+  };
+
   const openCreateModeModal = () => {
     setEditTargetId(null);
     setFormData(INITIAL_FORM_STATE);
     setPendingUploads([]);
+    setUploadErrorMsg('');
     setIsModalOpen(true);
   };
 
@@ -177,6 +259,7 @@ const AdminProductsPage = () => {
       brand: product.brand || ''
     });
     setPendingUploads([]);
+    setUploadErrorMsg('');
     setIsModalOpen(true);
   };
 
@@ -581,7 +664,7 @@ const AdminProductsPage = () => {
                         {isMobile ? 'Tap to Choose Photo' : 'Click or Drag & Drop'}
                       </p>
                       <p className="text-xs text-gray-500 pointer-events-none">
-                        JPG, PNG up to 10MB
+                        JPG, PNG, WebP, HEIC · Up to 15 MB
                       </p>
                       {/* Input is inside the label — native label-click association, no JS needed */}
                       <input
@@ -594,6 +677,20 @@ const AdminProductsPage = () => {
                         className="sr-only"
                       />
                     </label>
+
+                    {/* Upload validation error banner */}
+                    {uploadErrorMsg && (
+                      <div className="mt-3 flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                        <AlertCircle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-semibold text-red-700">Upload Error</p>
+                          <p className="text-xs text-red-600 mt-0.5">{uploadErrorMsg}</p>
+                        </div>
+                        <button type="button" onClick={() => setUploadErrorMsg('')} className="flex-shrink-0 text-red-400 hover:text-red-600">
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Upload Previews */}
                     {(formData.images.length > 0 || pendingUploads.length > 0) && (
@@ -622,11 +719,30 @@ const AdminProductsPage = () => {
                           <div key={upload.id} className="relative aspect-square rounded-xl border border-gray-200 overflow-hidden bg-gray-50 shadow-sm flex flex-col items-center justify-center p-2 text-center">
                             {upload.status === 'error' ? (
                               <>
-                                <AlertCircle className="h-6 w-6 text-red-500 mb-1" />
-                                <span className="text-[10px] font-semibold text-red-600 leading-tight">Failed</span>
-                                <button type="button" onClick={() => removePendingUpload(upload.id)} className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-sm text-gray-500 hover:text-gray-900">
-                                  <X className="h-3 w-3" />
-                                </button>
+                                <AlertCircle className="h-5 w-5 text-red-500 mb-1 flex-shrink-0" />
+                                <span className="text-[9px] font-semibold text-red-600 leading-tight line-clamp-2 px-1">
+                                  {upload.errorMsg || 'Upload failed'}
+                                </span>
+                                <div className="flex gap-1 mt-1.5">
+                                  {/* Retry button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => retryFailedUpload(upload)}
+                                    title="Retry upload"
+                                    className="p-1 bg-primary-50 border border-primary-200 rounded-full text-primary-600 hover:bg-primary-100"
+                                  >
+                                    <RotateCcw className="h-3 w-3" />
+                                  </button>
+                                  {/* Dismiss button */}
+                                  <button
+                                    type="button"
+                                    onClick={() => removePendingUpload(upload.id)}
+                                    title="Dismiss"
+                                    className="p-1 bg-white border border-gray-200 rounded-full text-gray-500 hover:text-gray-900"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
                               </>
                             ) : (
                               <>
@@ -638,7 +754,7 @@ const AdminProductsPage = () => {
                                     <div className="bg-primary-600 h-1.5 rounded-full transition-all duration-300" style={{ width: `${upload.progress}%` }}></div>
                                   </div>
                                   <span className="text-[10px] font-bold text-gray-800 bg-white/80 px-2 py-0.5 rounded-full shadow-sm">
-                                    {upload.status === 'compressing' ? '...' : `${upload.progress}%`}
+                                    {upload.status === 'compressing' ? 'Compressing…' : `${upload.progress}%`}
                                   </span>
                                 </div>
                               </>

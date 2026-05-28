@@ -43,11 +43,27 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // CRITICAL: If sending FormData (file upload), remove the default
-    // Content-Type: application/json header so the browser can automatically
-    // set the correct multipart/form-data boundary — multer requires this.
+    // CRITICAL: For FormData (file uploads), the Content-Type must NOT be set manually.
+    // The browser needs to set it automatically as 'multipart/form-data; boundary=...' with
+    // the correct boundary string — multer parses this boundary to split the fields.
+    //
+    // WHY `= undefined` instead of `delete`:
+    // Axios merges headers in layers: instance defaults → request config.
+    // On Android Chrome, `delete config.headers['Content-Type']` removes the key from
+    // the request-level object but Axios's internal merge can still inject the instance-level
+    // 'application/json' back in. Setting the value to `undefined` forces Axios to treat
+    // it as "not set" at every merge level, letting the browser set the boundary correctly.
     if (config.data instanceof FormData) {
-      delete config.headers['Content-Type'];
+      config.headers['Content-Type'] = undefined;
+      // Also clear from the common/post headers in case they exist on this config
+      if (config.headers.common) config.headers.common['Content-Type'] = undefined;
+      if (config.headers.post) config.headers.post['Content-Type'] = undefined;
+    }
+
+    // Extend timeout for file upload requests — large mobile camera photos on slow
+    // 4G connections can take >60s. 120s gives a reasonable buffer without hanging forever.
+    if (config.url && config.url.includes('/upload')) {
+      config.timeout = 120000; // 120 seconds
     }
 
     if (import.meta.env.DEV) {

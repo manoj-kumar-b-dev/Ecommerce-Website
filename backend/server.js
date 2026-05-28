@@ -20,8 +20,10 @@ connectDB();
 
 const app = express();
 
-app.use(helmet());
-
+// ─── CORS (must come BEFORE helmet) ───────────────────────────────────────────
+// On Android / mobile networks the browser sends an OPTIONS preflight.
+// If helmet runs first its Cross-Origin-Resource-Policy header can block the
+// preflight before CORS has a chance to set the correct allow-origin headers.
 const defaultAllowedOrigins = [
   'http://localhost:3000',
   'http://localhost:3001',
@@ -35,26 +37,48 @@ const configuredAllowedOrigins = [
   .map((origin) => origin.trim().replace(/\/+$/, '')); // strip trailing slashes
 const allowedOrigins = [...new Set([...defaultAllowedOrigins, ...configuredAllowedOrigins])];
 
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    console.warn(`[CORS] Blocked origin: ${origin}`);
     return callback(new Error(`CORS blocked origin: ${origin}`));
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  // 200 instead of 204 — some legacy Android browsers treat 204 as an error
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
+// Explicitly handle all OPTIONS preflight requests so they resolve before
+// any auth middleware can reject them with 401
+app.options('*', cors(corsOptions));
+
+// ─── Security Headers ──────────────────────────────────────────────────────────
+app.use(helmet({
+  // 'same-origin' would block Cloudinary CDN images and cross-origin API calls
+  // from Android WebView — set to 'cross-origin' to allow them
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
+
+// ─── Body parsers ──────────────────────────────────────────────────────────────
+// Raw body for Razorpay webhook signature verification (must come before express.json)
 app.use('/api/payment/razorpay/webhook', express.raw({ type: 'application/json' }));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use(cookieParser());
 
-
-// Health check endpoint — ping this every 14 min to prevent Render cold starts
+// ─── Health check ─────────────────────────────────────────────────────────────
+// Ping this every 14 min to prevent Render free-tier cold starts
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// ─── Routes ───────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
@@ -64,6 +88,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/addresses', addressRoutes);
 
+// ─── Error Handlers ───────────────────────────────────────────────────────────
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 

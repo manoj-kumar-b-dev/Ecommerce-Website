@@ -3,7 +3,6 @@ import dotenv from 'dotenv';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import connectDB from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import productRoutes from './routes/productRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
@@ -15,8 +14,9 @@ import addressRoutes from './routes/addressRoutes.js';
 import { notFoundHandler, globalErrorHandler } from './middleware/errorMiddleware.js';
 import cookieParser from 'cookie-parser';
 
+// Load env vars — dotenv.config() is safe to call multiple times;
+// it is a no-op if vars are already in process.env (Vercel injects them natively).
 dotenv.config();
-connectDB();
 
 const app = express();
 
@@ -92,5 +92,10 @@ app.use('/api/addresses', addressRoutes);
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// ─── Export for Vercel Serverless ─────────────────────────────────────────────
+// On Vercel the function handler is the exported Express app.
+// app.listen() is NOT called here — Vercel injects the HTTP server itself.
+// For local development, run the server via `api/index.js` or `server.js`
+// using `node --import dotenv/config server.js` (or keep the listen call
+// in a separate local-only file).
+export default app;
